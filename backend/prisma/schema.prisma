@@ -1,0 +1,259 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  country   String   @default("US")
+  role      UserRole @default(CUSTOMER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders        Order[]
+  cartItems     CartItem[]
+  repairTickets RepairTicket[]
+  reviews       Review[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  logo      String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  description      String?
+  longDescription  String?
+  price            Decimal           @db.Decimal(10, 2)
+  originalPrice    Decimal?          @db.Decimal(10, 2)
+  sku              String            @unique
+  stock            Int               @default(0)
+  images           String[]
+  condition        ProductCondition  @default(NEW)
+  isActive         Boolean           @default(true)
+  isFeatured       Boolean           @default(false)
+  isOnSale         Boolean           @default(false)
+  rating           Decimal?          @db.Decimal(3, 2)
+  reviewCount      Int               @default(0)
+  specifications   Json?
+  variants         Json?
+  weight           Decimal?          @db.Decimal(8, 2)
+  dimensions       String?
+  warranty         String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relations
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id])
+
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  @@map("products")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(PENDING)
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  subtotal        Decimal     @db.Decimal(10, 2)
+  tax             Decimal     @db.Decimal(10, 2)
+  shipping        Decimal     @db.Decimal(10, 2)
+  discount        Decimal?    @db.Decimal(10, 2)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  paymentId       String?
+  shippingAddress Json
+  billingAddress  Json?
+  notes           String?
+  trackingNumber  String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  total     Decimal @db.Decimal(10, 2)
+
+  // Relations
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model RepairTicket {
+  id              String       @id @default(cuid())
+  ticketNumber    String       @unique
+  deviceType      String
+  brand           String
+  model           String
+  issue           String
+  description     String?
+  images          String[]
+  videoUrl        String?
+  status          RepairStatus @default(SUBMITTED)
+  priority        Priority     @default(MEDIUM)
+  estimatedCost   Decimal?     @db.Decimal(10, 2)
+  actualCost      Decimal?     @db.Decimal(10, 2)
+  estimatedTime   String?
+  customerNotes   String?
+  technicianNotes String?
+  assignedTo      String?
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("repair_tickets")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      @db.SmallInt
+  title     String?
+  comment   String?
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("reviews")
+}
+
+// Enums
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  TECHNICIAN
+}
+
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum RepairStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  IN_PROGRESS
+  WAITING_PARTS
+  COMPLETED
+  READY_FOR_PICKUP
+  DELIVERED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
